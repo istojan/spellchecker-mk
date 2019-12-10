@@ -1,10 +1,11 @@
 from flask import Flask
 from flask import request
-from spellchecker.analyzer import analyze_text
-import json
+from flask import jsonify
+from spellchecker import analyzer
+
 
 app = Flask(__name__)
-
+app.config["JSON_SORT_KEYS"] = False
 
 @app.route('/')
 def hello_world():
@@ -15,19 +16,21 @@ def hello_world():
 def analyze_sentence():
 
     text = request.args["text"]
+    detailed_response = request.args.get("detailed", False)
 
-    detailed_response = False
+    result = analyzer.analyze_text(text, detailed_response)
 
-    if "detailed" in request.args:
-        detailed_response = request.args["detailed"]
-
+    return jsonify(result)
 
 
-    print("Text={}, Message=\"Received a request to check spelling for text.\"".format(text))
+@app.route("/check/text")
+def spellcheck_text():
 
-    result = analyze_text(text, detailed_response)
+    text = request.args["text"]
 
-    return json.dumps(result, ensure_ascii=False)
+    spellcheck_text_result = analyzer.spellcheck_text(text)
+
+    return jsonify(spellcheck_text_result)
 
 
 if __name__ == '__main__':
