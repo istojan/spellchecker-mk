@@ -62,10 +62,12 @@ def calculate_suggestions_scores(original_word, language_model_data, detailed_re
     :return:
     """
 
-    result = list()
+    print("Suggestions={}, Message=\"Starting to calculate suggestions scores.\"".format(len(language_model_data)))
+
+    suggestions_dict = dict()
 
     if len(language_model_data) == 0:
-        return result
+        return list()
 
     min_frequencies_per_level, max_frequencies_per_level = extract_min_max_frequency_values(language_model_data)
 
@@ -86,19 +88,22 @@ def calculate_suggestions_scores(original_word, language_model_data, detailed_re
         }
         if detailed_response:
             suggestion["Edit Distance Score"] = edit_distance_score
-            suggestion["Edit Distance Value"] = edit_distance_value
+            suggestion["Edit Distance"] = edit_distance_value
             suggestion["Frequency Score"] = frequency_score
-            suggestion["Language Model Score"] = language_model_level_score
+            suggestion["Language Model Level Score"] = language_model_level_score
             suggestion["Frequency Normalized"] = frequency_normalized
             suggestion["Frequency"] = frequency
-            suggestion["Level Score"] = level
+            suggestion["Language Model Level"] = level
 
-        result.append(suggestion)
-        # result.append([suggestion_word, total_suggestion_score, edit_distance_score, frequency_score, language_model_level_score, edit_distance_value, frequency_normalized, frequency, level])
+        if suggestion_word not in suggestions_dict or suggestions_dict[suggestion_word]["Total Score"] < total_suggestion_score:
+            suggestions_dict[suggestion_word] = suggestion
 
-    result = sorted(result, key=itemgetter("Total Score"), reverse=True)
+    result_list = list(suggestions_dict.values())
+    result_list = sorted(result_list, key=itemgetter("Total Score"), reverse=True)
 
-    return result
+    print("ResultSuggestions={}, Message=\"Finished calculating suggestions scores.\"".format(len(result_list)))
+
+    return result_list
 
 
 def extract_min_max_frequency_values(language_model_data):
@@ -183,6 +188,5 @@ def get_language_model_level_score(level):
     :param level:
     :return:
     """
-
 
     return LANGUAGE_MODEL_PTS_PER_LEVEL * (N_GRAM_LEVEL - level - 1)
