@@ -1,7 +1,8 @@
-from text_helpers.text_tokenizer import token_to_sentence, token_to_words, read_mk_dictionary
-from spellchecker.core_logic import edit_distance, edit_distance_1, edit_distance_2, calculate_suggestions_scores
+from text_helpers.text_tokenizer import token_to_sentence, token_to_words, read_mk_dictionary, check_word_type
+from spellchecker.core_logic import edit_distance, edit_distance_1_new, edit_distance_2, calculate_suggestions_scores
 import configuration
 from services import language_model_service
+import time
 
 
 MK_DICTIONARY = read_mk_dictionary(configuration.settings["dictionary_file_path"])
@@ -59,19 +60,29 @@ def spellcheck_text(text):
 
 def analyze_text(text, detailed_response):
 
-    sentences = token_to_sentence(text)
+    total_start_time = time.time()
 
-    print("Sentences={}".format(sentences))
+    sentences = token_to_sentence(text)
+    sentences_count = len(sentences)
+
+    # print("Sentences={}".format(sentences))
 
     text_analyzer_result = list()
 
+    print("SentencesCount={}, Messages=\"Starting to analyze sentences.\"".format(sentences_count))
+
     for sentence_index, sentence in enumerate(sentences, start=1):
+        start_time  = time.time()
         sentence_analyzer_result = analyze_sentence(sentence, sentence_index, detailed_response)
         text_analyzer_result.append(sentence_analyzer_result)
 
+        print("ElapsedTime={}, {}/{}, Message=\"Sentences analyzed.\"".format(time.time() - start_time, sentence_index, sentences_count))
+
+    print("TotalElapsedTime={}, SentencesCount={}, Messages=\"Finished analyzing sentences.\"".format(time.time() - total_start_time, sentences_count))
+
     return text_analyzer_result
 
-
+# TODO: add logic for names, numbers...
 def analyze_sentence(sentence, sentence_index, detailed_response):
 
     words = token_to_words(sentence)
@@ -85,6 +96,20 @@ def analyze_sentence(sentence, sentence_index, detailed_response):
     processed_suggestions_list = list()
 
     for index, word in enumerate(words, 0):
+
+        start_time = time.time()
+
+        if len(word) == 1:
+            processed_suggestions_list.append(get_default_word_suggestion(word))
+            previous_words_list.append(word)
+            continue
+
+        processed_word = check_word_type(word, set())
+        if processed_word != word:
+            # word is either name or digit
+            processed_suggestions_list.append(get_default_word_suggestion(word))
+            previous_words_list.append(word)
+            continue
 
         if index == 0:
             suggestions = get_single_word_suggestions(word)
@@ -103,22 +128,47 @@ def analyze_sentence(sentence, sentence_index, detailed_response):
                 previous_words_list.append(word)
 
             processed_suggestions_list.append(suggestions_container)
+            print("ElapsedTime={}, Building first word suggestion elapsed time".format(time.time() - start_time))
             continue
+
+        request_time = time.time()
 
         language_model_data = language_model_service.get_language_model_suggestions(previous_words_list)
 
+        request_time = time.time() - request_time
+        processing_time = time.time()
+
         language_model_suggestions = calculate_suggestions_scores(word, language_model_data, detailed_response)
 
+        processing_time_1 = time.time() - processing_time
+
         word_suggestions_object = get_processed_suggestions(word, language_model_suggestions)
+
+        processing_time_2 = time.time() - processing_time
 
         update_previous_words_list(previous_words_list, word, language_model_suggestions, word_suggestions_object)
 
         processed_suggestions_list.append(word_suggestions_object)
 
+        processing_time = time.time() - processing_time
+
+        print("ElapsedTime={}, RequestTime={}, ProcessingTime={}, ProcTime1={}, ProcTime2={}, Building other word suggestion elapsed time".format(time.time() - start_time, request_time, processing_time, processing_time_1, processing_time_2))
+
     result["Top Suggestion"] = " ".join(previous_words_list)
     result["Suggestions"] = processed_suggestions_list
 
     return result
+
+
+def get_default_word_suggestion(word):
+    word_suggestion = {
+        "Word": word,
+        "Most Probable Word": word,
+        "Language Model Suggestions": list(),
+        "Single Word Suggestions": list()
+    }
+
+    return word_suggestion
 
 
 def get_single_word_suggestions(word):
@@ -128,14 +178,17 @@ def get_single_word_suggestions(word):
     :return:
     """
 
-    words = list()
+    start_time = time.time()
+
+    words = set()
 
     word_is_valid = is_valid_word(word)
 
     if word_is_valid:
-        words.append(word)
+        words.add(word)
 
-    edits1_words = edit_distance_1(word)
+    # edits1_words = edit_distance_1(word)
+    edits1_words = edit_distance_1_new(word)
     edits2_words = edit_distance_2(edits1_words)
 
     # print("Word={}, Edits1Count={}, Edits2Count={}, Raw Words...".format(word, len(edits1_words), len(edits2_words)))
@@ -152,10 +205,16 @@ def get_single_word_suggestions(word):
     if word in edits1_words:
         edits1_words.remove(word)   # if the original word is present, remove it
 
-    words.extend(edits1_words)
-    words.extend(edits2_words)
+    words.add(edits1_words)
+    words.add(edits2_words)
+
+    calculating_edit_words_time = time.time() - start_time
+    getting_words_freq_time = time.time()
 
     words_frequency = language_model_service.get_words_frequencies(words)
+
+    getting_words_freq_time = time.time() - getting_words_freq_time
+    preparing_data_time = time.time()
 
     result = list()
     if word_is_valid:
@@ -168,6 +227,10 @@ def get_single_word_suggestions(word):
     result = result[:configuration.MAX_SUGGESTIONS_LIMIT]
 
     formatted_result = format_single_word_suggestions(result)
+
+    preparing_data_time = time.time() - preparing_data_time
+
+    print("TotalElapsedTime={}, Edit1Words={}, Edit2Words={}, CalculatingEditWordsElapsedTime={}, GettingWordsFreqElapsedTime={}, PreparingDataElapsedTime={}, Get single words suggestions".format(time.time() - start_time, len(edits1_words), len(edits2_words), calculating_edit_words_time, getting_words_freq_time, preparing_data_time))
 
     return formatted_result
 
@@ -200,7 +263,9 @@ def get_processed_suggestions(predicting_word, language_model_suggestions):
 
     already_used_words = set(suggestion["Word"] for suggestion in top_lm_suggestions)
 
+    # investigate why this is sooooo slow. Merge this with the language model call.
     if len(already_used_words) < configuration.MAX_SUGGESTIONS_LIMIT:
+        print("Getting single word suggestions...")
         single_word_suggestions = get_single_word_suggestions(predicting_word)
 
         for suggestion in single_word_suggestions:
@@ -224,7 +289,7 @@ def update_previous_words_list(previous_words_list, predicting_word, language_mo
     if language_model_suggestions_count == 0:
         # we have no language model suggestions, check single word suggestions
 
-        if len(word_suggestions_object) > 0 and word_suggestions_object["Single Word Suggestions"][0]["Edit Distance"] <= 1:
+        if len(word_suggestions_object["Single Word Suggestions"]) > 0 and word_suggestions_object["Single Word Suggestions"][0]["Edit Distance"] <= 1:
             previous_words_list.append(word_suggestions_object["Single Word Suggestions"][0]["Word"])
             word_suggestions_object["Most Probable Word"] = word_suggestions_object["Single Word Suggestions"][0]["Word"]
             return
@@ -234,6 +299,12 @@ def update_previous_words_list(previous_words_list, predicting_word, language_mo
         return
 
     if check_if_suggestions_contains_predicting_word(predicting_word, language_model_suggestions):
+        previous_words_list.append(predicting_word)
+        return
+
+    # this is optional
+    single_words = set([sugg["Word"] for sugg in word_suggestions_object["Single Word Suggestions"]])
+    if predicting_word in single_words:
         previous_words_list.append(predicting_word)
         return
 

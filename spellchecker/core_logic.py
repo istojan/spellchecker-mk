@@ -37,21 +37,56 @@ def edit_distance(str1, str2, m, n):
     return dp[m][n]
 
 
-def edit_distance_1(word):
+# def edit_distance_1(word):
+#     "All edits that are one edit away from `word`."
+#
+#     splits = [(word[:i], word[i:]) for i in range(len(word) + 1)]
+#     deletes = [L + R[1:] for L, R in splits if R]
+#     transposes = [L + R[1] + R[0] + R[2:] for L, R in splits if len(R) > 1]
+#     replaces = [L + c + R[1:] for L, R in splits if R for c in LETTERS]
+#     inserts = [L + c + R for L, R in splits for c in LETTERS]
+#
+#     return set(deletes + transposes + replaces + inserts)
+
+
+def edit_distance_1_new(word):
     "All edits that are one edit away from `word`."
 
-    splits = [(word[:i], word[i:]) for i in range(len(word) + 1)]
-    deletes = [L + R[1:] for L, R in splits if R]
-    transposes = [L + R[1] + R[0] + R[2:] for L, R in splits if len(R) > 1]
-    replaces = [L + c + R[1:] for L, R in splits if R for c in LETTERS]
-    inserts = [L + c + R for L, R in splits for c in LETTERS]
+    words = set()
 
-    return set(deletes + transposes + replaces + inserts)
+    for i in range(len(word) + 1):
+        L = word[:i]
+        R = word[i:]
+
+        for c in LETTERS:
+
+            insert_word = L + c + R
+            words.add(insert_word)
+
+            if R:
+                replace_word = L + c + R[1:]
+                words.add(replace_word)
+
+        if R:
+            delete_word = L + R[1:]
+            words.add(delete_word)
+
+            if len(R) > 1:
+                transpose_word = L + R[1] + R[0] + R[2:]
+                words.add(transpose_word)
+
+    # splits = [(word[:i], word[i:]) for i in range(len(word) + 1)]
+    # deletes = [L + R[1:] for L, R in splits if R]
+    # transposes = [L + R[1] + R[0] + R[2:] for L, R in splits if len(R) > 1]
+    # replaces = [L + c + R[1:] for L, R in splits if R for c in LETTERS]
+    # inserts = [L + c + R for L, R in splits for c in LETTERS]
+
+    return words
 
 
 def edit_distance_2 (edit_distance_1_words):
     "All edits that are two edits away from `word`."
-    return set(e2 for e1 in edit_distance_1_words for e2 in edit_distance_1(e1))
+    return set(e2 for e1 in edit_distance_1_words for e2 in edit_distance_1_new(e1))
 
 
 def calculate_suggestions_scores(original_word, language_model_data, detailed_response):
@@ -62,7 +97,7 @@ def calculate_suggestions_scores(original_word, language_model_data, detailed_re
     :return:
     """
 
-    print("Suggestions={}, Message=\"Starting to calculate suggestions scores.\"".format(len(language_model_data)))
+    # print("Suggestions={}, Message=\"Starting to calculate suggestions scores.\"".format(len(language_model_data)))
 
     suggestions_dict = dict()
 
@@ -101,7 +136,7 @@ def calculate_suggestions_scores(original_word, language_model_data, detailed_re
     result_list = list(suggestions_dict.values())
     result_list = sorted(result_list, key=itemgetter("Total Score"), reverse=True)
 
-    print("ResultSuggestions={}, Message=\"Finished calculating suggestions scores.\"".format(len(result_list)))
+    # print("ResultSuggestions={}, Message=\"Finished calculating suggestions scores.\"".format(len(result_list)))
 
     return result_list
 

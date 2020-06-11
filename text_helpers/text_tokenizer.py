@@ -1,7 +1,8 @@
 import re
+from configuration import NAME_JOKER_SIGN, NUMBER_JOKER_SIGN
 
 
-TEXT_TO_SENTENCES_REGEX = '([\w\s]{0,})[^\w\s]'
+TEXT_TO_SENTENCES_REGEX = '([\w\s]{0,})[^\w\s\\n]'
 SENTENCE_TO_WORDS_REGEX = '([\w]{0,})'
 
 
@@ -15,6 +16,19 @@ def read_mk_dictionary(dictionary_path):
     return dictionary_words
 
 
+def read_file(input_file_path):
+
+    text = ""
+
+    with open(input_file_path, 'r') as input_file:
+
+        for line in input_file:
+            text += line.replace("\n", " ")
+
+    return text
+
+
+# TODO: Fix it to work with sentences that don't end with a punctuation sign.
 def token_to_sentence(text):
     """
     A function that from a given string (text) extracts sentences by using a Regex and returns a list of sentences.
@@ -24,10 +38,14 @@ def token_to_sentence(text):
     :return: a list of sentences
     """
 
+    # add an extra comma for sentences that don't end with a punctuation sign
+    text = text + "."
+
     regex_of_sentence = re.findall(TEXT_TO_SENTENCES_REGEX, text)
+    print("Text={}, RegexOfSentences={}".format(text, regex_of_sentence))
     text_sentences = [x.strip() for x in regex_of_sentence if x is not '']
 
-    print("Text={}, Sentences={}, Extracted sentences".format(text, text_sentences))
+    # print("Text={}, Sentences={}, Extracted sentences".format(text, text_sentences))
 
     return text_sentences
 
@@ -44,3 +62,13 @@ def token_to_words(sentence):
     words = [x.lower() for x in regex_of_word if x is not '']
 
     return words
+
+
+def check_word_type(word, names_set):
+
+    if word in names_set:
+        return NAME_JOKER_SIGN
+    elif word.isdigit():
+        return NUMBER_JOKER_SIGN
+
+    return word
