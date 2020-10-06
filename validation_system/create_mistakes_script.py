@@ -9,13 +9,47 @@ CHANGE_CHARACTER_PROBABILITY_PERCENTAGE = 7
 
 ALPHABET = "абвгдѓежзѕијклљмнњопрстќуфхцчџш"
 
+CHARACTER_TO_ERROR_COMBINATIONS = {
+    "а": ["с", "њ", "љ", "з", "џ"],
+    "б": ["в", "г", "х", "н", "п"],
+    "в": ["ц", "ф", "г", "б"],
+    "г": ["ф", "т", "ѕ", "х", "б", "в", "ѓ"],
+    "д": ["џ", "с", "е", "р", "ф", "ц", "т"],
+    "ѓ": ["ж", "ќ", "ш", "г"],
+    "е": ["р", "д", "с", "њ"],
+    "ж": ["ќ", "ѓ", "ш", "з"],
+    "з": ["џ", "с", "а"],
+    "ѕ": ["у", "х", "г", "т"],
+    "и": ["о", "к", "ј", "у"],
+    "ј": ["н", "х", "у", "и", "к", "м"],
+    "к": ["м", "ј", "и", "о", "л"],
+    "л": ["к", "о", "п", "ч", "љ"],
+    "љ": ["њ", "а", "л"],
+    "м": ["н", "ј", "к"],
+    "н": ["б", "х", "ј", "м", "њ"],
+    "њ": ["е", "с", "а", "љ"],
+    "о": ["п", "ч", "л", "к", "и"],
+    "п": ["ш", "ч", "л", "о", "б"],
+    "р": ["т", "ф", "д", "е"],
+    "с": ["д", "џ", "з", "а", "њ", "е"],
+    "т": ["ѕ", "х", "г", "ф", "р"],
+    "ќ": ["ш", "ѓ", "ж", "ч", "к"],
+    "у": ["и", "к", "ј", "х", "ѕ"],
+    "ф": ["ц", "д", "р", "т", "г", "в"],
+    "х": ["б", "г", "ѕ", "у", "ј", "н"],
+    "ц": ["џ", "д", "ф", "в"],
+    "ч": ["л", "п", "ш", "ќ", "џ"],
+    "џ": ["з", "с", "д", "ц", "ч"],
+    "ш": ["ѓ", "ж", "ќ", "ч", "п", "с"]
+}
+
 
 def create_error_from_character(original_character):
     """
     We can produce 3 types of errors:
     - add extra character
     - delete character
-    - change character into a new character
+    - change character into a different character
 
     We would use all 3 errors. Since the most common mistake is probably using a different letter, 50% of the errors
     would be of the 3rd type and 25% would be from the 1st and 2th
@@ -24,32 +58,49 @@ def create_error_from_character(original_character):
     :return:
     """
 
-    error_type_int = randint(0, 100)
+    is_upper = original_character.isupper()
+
+    error_type_int = randint(1, 100)
 
     # if random number is less than 25, we add an extra character
     if error_type_int <= 25:
-        return original_character + "" + get_random_alphabet_character()
+        error = original_character + "" + get_related_character(original_character, is_same_character_allowed=True)
     # if random is between 25-50, we delete the character
     elif error_type_int <= 50:
-        return ""
+        error = ""
     # if random number is between 51-100, we change the character into a different character
     else:
-        return get_random_alphabet_character(original_character)
+        error = get_related_character(original_character, is_same_character_allowed=False)
+
+    if is_upper:
+        return error.upper()
+
+    return error.lower()
 
 
-def get_random_alphabet_character(original_character=""):
+def get_related_character(original_character, is_same_character_allowed=True):
     """
-    A method to generate a random character. If an original_character is passed, we want to return a random character
-    that is not the original character.
+    A method to generate a related character to the original. The combinations of characters are defined in
+    CHARACTER_TO_ERROR_COMBINATIONS. Besides the characters mentioned there, another option is to return the same character
     :param original_character:
     :return:
     """
 
-    while True:
-        random_index = randint(1, len(ALPHABET))
+    related_char = ""
 
-        if ALPHABET[random_index-1] != original_character:
-            return ALPHABET[random_index-1]
+    char_combinations = CHARACTER_TO_ERROR_COMBINATIONS[original_character.lower()]
+    total_char_combinations = len(char_combinations)
+
+    while not related_char:
+        related_char_position = randint(0, total_char_combinations)
+
+        if is_same_character_allowed and related_char_position == total_char_combinations:
+            related_char = original_character
+
+        if related_char_position < total_char_combinations:
+            related_char = char_combinations[related_char_position]
+
+    return related_char
 
 
 def read_input_file(input_file_path):
@@ -62,6 +113,14 @@ def read_input_file(input_file_path):
             text += line.replace("\n", " ")
 
     return text
+
+
+def is_cyrilic_character(char):
+
+    if not char.isalpha():
+        return False
+
+    return (char >= 'а' and char <= "ш") or (char >= "А" and char  <= "Ш")
 
 
 if __name__ == '__main__':
@@ -92,7 +151,7 @@ if __name__ == '__main__':
         output_text = ""
 
         for c in text:
-            if c.isalpha() and randint(0, 100) < CHANGE_CHARACTER_PROBABILITY_PERCENTAGE:
+            if is_cyrilic_character(c) and randint(0, 100) < CHANGE_CHARACTER_PROBABILITY_PERCENTAGE:
                 characters_to_replace = create_error_from_character(c)
                 print("Changing {} to {}".format(c, characters_to_replace))
                 output_text += characters_to_replace
@@ -107,8 +166,8 @@ if __name__ == '__main__':
             sys.exit()
 
         for sentence_idx in range(0, len(original_sentences_list)):
-            original_sentence_words = text_tokenizer.token_to_words(original_sentences_list[sentence_idx])
-            error_sentence_words = text_tokenizer.token_to_words(error_containing_sentences_list[sentence_idx])
+            original_sentence_words = text_tokenizer.token_to_words(original_sentences_list[sentence_idx][0])
+            error_sentence_words = text_tokenizer.token_to_words(error_containing_sentences_list[sentence_idx][0])
 
             if len(original_sentence_words) != len(error_sentence_words):
                 print("OriginalSentencesWordCount={}, ErrorSentencesWordCount={}, Different number of words..."
