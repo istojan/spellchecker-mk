@@ -4,7 +4,7 @@ settings = {
     "output_file_path": "output/language_model_large_v4.pickle",
     "dictionary_file_path": "other/macedonian-dict",
     "language_model_service_address": "http://127.0.0.1:5000",
-    "validation_system_files_directory": "../other/validation_system/example2/",
+    "validation_system_files_directory": "../other/validation_system/new_example/",
     "validation_system_input_file_name": "example_text.txt",
 }
 
@@ -19,8 +19,3 @@ LANGUAGE_MODEL_PTS_PER_LEVEL = 2
 
 LETTERS = "абвгдѓежзѕијклљмнњопрстќуфџцчџш"
 
-NAME_JOKER_SIGN = "#######"
-
-SURNAME_JOKER_SIGN = "&&&&&&&"
-
-NUMBER_JOKER_SIGN = "$$$$$$$"

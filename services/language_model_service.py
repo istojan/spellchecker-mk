@@ -18,6 +18,7 @@ def get_language_model_suggestions(previous_words):
 
     request_address = get_language_model_service_url("model/query")
     r = requests.get(request_address, params={"sentence": previous_words_sentence})
+
     language_model_data = r.json()
 
     return language_model_data

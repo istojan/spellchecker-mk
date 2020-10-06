@@ -1,8 +1,9 @@
 import re
-from configuration import NAME_JOKER_SIGN, NUMBER_JOKER_SIGN
+from cache.names import is_word_name
 
 
-TEXT_TO_SENTENCES_REGEX = '([\w\s]{0,})[^\w\s\\n]'
+# TEXT_TO_SENTENCES_REGEX = '([\w\s]{0,})[^\w\s\\n]'
+TEXT_TO_SENTENCES_REGEX = '([\w\s]{0,})([^\w\s\\n]{1})'
 SENTENCE_TO_WORDS_REGEX = '([\w]{0,})'
 
 
@@ -28,7 +29,6 @@ def read_file(input_file_path):
     return text
 
 
-# TODO: Fix it to work with sentences that don't end with a punctuation sign.
 def token_to_sentence(text):
     """
     A function that from a given string (text) extracts sentences by using a Regex and returns a list of sentences.
@@ -38,18 +38,22 @@ def token_to_sentence(text):
     :return: a list of sentences
     """
 
-    # add an extra comma for sentences that don't end with a punctuation sign
+    # add an extra dot for sentences that don't end with a punctuation sign
     text = text + "."
 
     regex_of_sentence = re.findall(TEXT_TO_SENTENCES_REGEX, text)
     print("Text={}, RegexOfSentences={}".format(text, regex_of_sentence))
-    text_sentences = [x.strip() for x in regex_of_sentence if x is not '']
+    text_sentences = [(sentence.strip(), sign) for sentence, sign in regex_of_sentence]
 
-    # print("Text={}, Sentences={}, Extracted sentences".format(text, text_sentences))
+    # remove last element if it's a sentence without a sign (to remove the extra dot if it's not needed)
+    last_sentence_sign = text_sentences[-1]
+    if last_sentence_sign[0] == "":
+        text_sentences.pop()
 
     return text_sentences
 
 
+# TODO: review usage. returns with capital letters now
 def token_to_words(sentence):
     """
     A function that from a given sentence extracts a list of words using a regex and returns the list
@@ -59,16 +63,12 @@ def token_to_words(sentence):
 
     regex_of_word = re.findall(SENTENCE_TO_WORDS_REGEX, sentence)
 
-    words = [x.lower() for x in regex_of_word if x is not '']
+    # words = [x.lower() for x in regex_of_word if x is not '']
+    words = [x for x in regex_of_word if x is not '']
 
     return words
 
 
-def check_word_type(word, names_set):
+def is_special_word(word):
 
-    if word in names_set:
-        return NAME_JOKER_SIGN
-    elif word.isdigit():
-        return NUMBER_JOKER_SIGN
-
-    return word
+    return is_word_name(word) or word.isdigit()

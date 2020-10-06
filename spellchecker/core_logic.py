@@ -92,9 +92,6 @@ def edit_distance_2 (edit_distance_1_words):
 def calculate_suggestions_scores(original_word, language_model_data, detailed_response):
     """
 
-    :param original_word:
-    :param language_model_data:
-    :return:
     """
 
     # print("Suggestions={}, Message=\"Starting to calculate suggestions scores.\"".format(len(language_model_data)))
